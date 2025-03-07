@@ -1,17 +1,814 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>Redirecting...</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电影推荐系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        secondary: '#4E4DC5',
+                        dark: {
+                            bg: '#181818',
+                            card: '#242424',
+                            text: '#E0E0E0'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'scale-in': 'scaleIn 0.3s ease-out'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        scaleIn: {
+                            '0%': { transform: 'scale(0.9)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .movie-poster {
+            background-image: linear-gradient(135deg, #5D5CDE 0%, #4E4DC5 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .movie-poster::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        
+        .movie-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .movie-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .autocomplete-item {
+            transition: background-color 0.2s;
+        }
+        
+        .similarity-bar {
+            transition: width 1s ease-out;
+            width: 0;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: -468px 0;
+            }
+            100% {
+                background-position: 468px 0;
+            }
+        }
+        
+        .loading-shimmer {
+            animation-duration: 1.5s;
+            animation-fill-mode: forwards;
+            animation-iteration-count: infinite;
+            animation-name: shimmer;
+            animation-timing-function: linear;
+            background: linear-gradient(to right, #f6f7f8 8%, #edeef1 18%, #f6f7f8 33%);
+            background-size: 800px 104px;
+        }
+        
+        .dark .loading-shimmer {
+            background: linear-gradient(to right, #333 8%, #3a3a3a 18%, #333 33%);
+        }
+        
+        /* Initial display for smooth transition */
+        .recommendation-section {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .recommendation-card {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        
+        .dark .blurred-bg {
+            background-color: rgba(30, 30, 30, 0.7);
+        }
+        
+        .blurred-bg {
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+        }
+    </style>
 </head>
-<body>
-    <h1>欢迎来到我的网站</h1>
-    <p>这个页面会自动跳转到指定的服务器。如果没有跳转，请<a href="http://172.96.255.160:3000/">点击这里</a>。</p>
+<body class="min-h-screen bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-dark-text transition-colors">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-2 text-primary">电影推荐系统</h1>
+            <p class="text-gray-600 dark:text-gray-400">输入您看过的电影，获取个性化推荐</p>
+        </header>
+        
+        <div class="grid md:grid-cols-3 gap-6">
+            <!-- 输入区域 -->
+            <div class="md:col-span-1 space-y-6">
+                <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">输入您看过的电影</h2>
+                    
+                    <div class="relative mb-4">
+                        <input type="text" id="movie-input" class="w-full p-3 text-base border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-primary transition" placeholder="输入电影名称...">
+                        <div id="autocomplete-results" class="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden"></div>
+                    </div>
+                    
+                    <button id="add-movie-btn" class="w-full bg-primary hover:bg-secondary text-white font-medium py-2 px-4 rounded-lg transition-colors">添加电影</button>
+                </div>
+                
+                <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">已选电影</h2>
+                    <div id="selected-movies" class="space-y-2">
+                        <p class="text-gray-500 dark:text-gray-400 text-center italic">未选择任何电影</p>
+                    </div>
+                </div>
+                
+                <button id="recommend-btn" class="w-full bg-primary hover:bg-secondary text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">获取推荐</button>
+            </div>
+            
+            <!-- 推荐结果区域 -->
+            <div class="md:col-span-2">
+                <div id="recommendation-container" class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 h-full transition-all">
+                    <h2 class="text-xl font-semibold mb-6 text-gray-800 dark:text-gray-200">电影推荐</h2>
+                    
+                    <div id="initial-state" class="flex flex-col items-center justify-center py-16 text-center">
+                        <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h18M3 16h18" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">您的个性化电影推荐</h3>
+                        <p class="text-gray-500 dark:text-gray-400 max-w-md">选择您看过的电影，然后点击"获取推荐"按钮，获取为您定制的电影推荐。</p>
+                    </div>
+                    
+                    <div id="loading-state" class="py-8 hidden">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                            <p class="text-gray-600 dark:text-gray-400 text-lg" id="loading-text">正在分析您的电影偏好...</p>
+                        </div>
+                        
+                        <div class="mt-8 space-y-4">
+                            <div class="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg loading-shimmer"></div>
+                            <div class="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg loading-shimmer"></div>
+                            <div class="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg loading-shimmer"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="recommendation-results" class="hidden">
+                        <div class="recommendation-section space-y-6"></div>
+                    </div>
+                    
+                    <div id="unknown-movie-results" class="hidden">
+                        <div class="bg-primary/10 dark:bg-primary/20 rounded-lg p-4 mb-6">
+                            <p class="font-medium text-primary">电影未在本地数据库中找到。以下是基于AI的推荐：</p>
+                        </div>
+                        <div id="ai-recommendation" class="prose dark:prose-invert max-w-none"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
-    <img src="images/transformer.jpg" alt="Transfomer" />
-
-    <script type="text/javascript">
-        // 自动跳转到目标服务器
-        window.location.href = "http://172.96.255.160:3000/";
+    <script>
+        // 检测暗色模式
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+        
+        // 电影数据库 - 10部电影
+        const movies = [
+            {
+                id: 1,
+                title: "肖申克的救赎",
+                year: 1994,
+                director: "弗兰克·德拉邦特",
+                genres: ["剧情", "犯罪"],
+                description: "两个被监禁的男人在数年间找到慰藉与救赎，通过共同的爱好和小小的仁慈行为。",
+                keywords: ["监狱", "友情", "希望", "自由", "正义"]
+            },
+            {
+                id: 2,
+                title: "教父",
+                year: 1972,
+                director: "弗朗西斯·福特·科波拉",
+                genres: ["剧情", "犯罪"],
+                description: "一个有组织犯罪家族的老化patriarch将控制权移交给他不情愿的儿子。",
+                keywords: ["黑手党", "家族", "权力", "忠诚", "复仇"]
+            },
+            {
+                id: 3,
+                title: "蝙蝠侠：黑暗骑士",
+                year: 2008,
+                director: "克里斯托弗·诺兰",
+                genres: ["动作", "犯罪", "剧情"],
+                description: "当小丑出现并引发混乱时，蝙蝠侠必须接受一场针对他所保护的城市的最大心理和身体考验。",
+                keywords: ["超级英雄", "犯罪", "正义", "混乱", "道德"]
+            },
+            {
+                id: 4,
+                title: "星际穿越",
+                year: 2014,
+                director: "克里斯托弗·诺兰",
+                genres: ["冒险", "剧情", "科幻"],
+                description: "一组探险家通过新发现的虫洞进行星际旅行，以寻找人类的新家园。",
+                keywords: ["太空", "时间", "爱", "科学", "生存"]
+            },
+            {
+                id: 5,
+                title: "盗梦空间",
+                year: 2010,
+                director: "克里斯托弗·诺兰",
+                genres: ["动作", "冒险", "科幻"],
+                description: "一个窃取企业秘密的小偷被给予了植入另一个人想法的任务。",
+                keywords: ["梦境", "潜意识", "现实", "记忆", "想法"]
+            },
+            {
+                id: 6,
+                title: "泰坦尼克号",
+                year: 1997,
+                director: "詹姆斯·卡梅隆",
+                genres: ["剧情", "爱情"],
+                description: "一个贫穷的艺术家和一个富有的女子在注定沉没的R.M.S. Titanic的处女航上相爱。",
+                keywords: ["爱情", "灾难", "阶级", "牺牲", "命运"]
+            },
+            {
+                id: 7,
+                title: "寻梦环游记",
+                year: 2017,
+                director: "李·昂克里奇",
+                genres: ["动画", "冒险", "家庭"],
+                description: "热爱音乐的米格尔误入了五彩斑斓的'亡灵之地'，开始了一段不可思议的奇幻旅程。",
+                keywords: ["家庭", "文化", "音乐", "记忆", "传统"]
+            },
+            {
+                id: 8,
+                title: "阿甘正传",
+                year: 1994,
+                director: "罗伯特·泽米吉斯",
+                genres: ["剧情", "爱情"],
+                description: "智力障碍的阿甘意外地成为美国历史上几个决定性时刻的关键人物。",
+                keywords: ["人生", "爱情", "历史", "命运", "坚持"]
+            },
+            {
+                id: 9,
+                title: "千与千寻",
+                year: 2001,
+                director: "宫崎骏",
+                genres: ["动画", "冒险", "家庭"],
+                description: "小女孩千寻在一个奇怪的城镇迷路后，她的父母变成了猪，她必须工作以找到回家的路。",
+                keywords: ["成长", "勇气", "精神世界", "自我发现", "友情"]
+            },
+            {
+                id: 10,
+                title: "复仇者联盟：终局之战",
+                year: 2019,
+                director: "安东尼·罗素, 乔·罗素",
+                genres: ["动作", "冒险", "科幻"],
+                description: "复仇者联盟对抗灭霸，试图恢复灭霸消灭的宇宙一半生命。",
+                keywords: ["超级英雄", "团队", "牺牲", "时间旅行", "最终决战"]
+            }
+        ];
+        
+        // 计算电影相似度（基于共同关键词、导演和类型）
+        function calculateSimilarity(movie1, movie2) {
+            let score = 0;
+            
+            // 共同类型
+            const commonGenres = movie1.genres.filter(g => movie2.genres.includes(g));
+            score += commonGenres.length * 10;
+            
+            // 同一导演
+            if (movie1.director === movie2.director) {
+                score += 20;
+            }
+            
+            // 共同关键词
+            const commonKeywords = movie1.keywords.filter(k => movie2.keywords.includes(k));
+            score += commonKeywords.length * 5;
+            
+            // 年代相近（10年内算相近）
+            const yearDiff = Math.abs(movie1.year - movie2.year);
+            if (yearDiff < 5) {
+                score += 10;
+            } else if (yearDiff < 10) {
+                score += 5;
+            }
+            
+            // 最高分数100分
+            return Math.min(Math.round(score), 100);
+        }
+        
+        // 根据用户选择的电影获取推荐
+        function getRecommendations(selectedMovies) {
+            if (selectedMovies.length === 0) return [];
+            
+            let recommendationScores = {};
+            
+            // 找出数据库中未被用户选择的电影
+            const unselectedMovies = movies.filter(m => !selectedMovies.some(sm => sm.id === m.id));
+            
+            // 为每部未选择的电影计算与所有已选电影的平均相似度
+            unselectedMovies.forEach(movie => {
+                let totalScore = 0;
+                let reasons = [];
+                
+                selectedMovies.forEach(selectedMovie => {
+                    const similarity = calculateSimilarity(selectedMovie, movie);
+                    totalScore += similarity;
+                    
+                    // 生成推荐原因
+                    if (similarity >= 70) {
+                        const commonGenres = selectedMovie.genres.filter(g => movie.genres.includes(g));
+                        const commonKeywords = selectedMovie.keywords.filter(k => movie.keywords.includes(k));
+                        
+                        if (selectedMovie.director === movie.director) {
+                            reasons.push(`与《${selectedMovie.title}》相同导演: ${movie.director}`);
+                        }
+                        
+                        if (commonGenres.length > 0) {
+                            reasons.push(`与《${selectedMovie.title}》有相同类型: ${commonGenres.join(', ')}`);
+                        }
+                        
+                        if (commonKeywords.length > 0) {
+                            reasons.push(`与《${selectedMovie.title}》有相似元素: ${commonKeywords.join(', ')}`);
+                        }
+                    }
+                });
+                
+                const avgScore = totalScore / selectedMovies.length;
+                recommendationScores[movie.id] = {
+                    movie,
+                    score: avgScore,
+                    reasons: [...new Set(reasons)] // 去除重复原因
+                };
+            });
+            
+            // 按相似度降序排序
+            const sortedRecommendations = Object.values(recommendationScores).sort((a, b) => b.score - a.score);
+            
+            // 返回前3个推荐，或所有可用推荐（如果少于3个）
+            return sortedRecommendations.slice(0, 3);
+        }
+        
+        // 生成随机颜色（与电影类型相关）
+        function getGenreColor(genre) {
+            const colors = {
+                "剧情": "#3498db",
+                "犯罪": "#e74c3c",
+                "动作": "#f39c12",
+                "冒险": "#2ecc71",
+                "科幻": "#9b59b6",
+                "爱情": "#e84393",
+                "动画": "#00b894",
+                "家庭": "#fdcb6e",
+                "悬疑": "#6c5ce7"
+            };
+            
+            return colors[genre] || "#5D5CDE";
+        }
+        
+        // 生成电影卡片渐变色
+        function generateMovieCardGradient(genres) {
+            if (genres.length === 0) return "linear-gradient(135deg, #5D5CDE 0%, #4E4DC5 100%)";
+            
+            if (genres.length === 1) {
+                const color = getGenreColor(genres[0]);
+                const lighterColor = adjustColor(color, 30);
+                return `linear-gradient(135deg, ${color} 0%, ${lighterColor} 100%)`;
+            }
+            
+            const color1 = getGenreColor(genres[0]);
+            const color2 = getGenreColor(genres[1]);
+            return `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)`;
+        }
+        
+        // 调整色彩明度
+        function adjustColor(hex, amount) {
+            let r = parseInt(hex.substring(1, 3), 16);
+            let g = parseInt(hex.substring(3, 5), 16);
+            let b = parseInt(hex.substring(5, 7), 16);
+            
+            r = Math.min(255, r + amount);
+            g = Math.min(255, g + amount);
+            b = Math.min(255, b + amount);
+            
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+        
+        // DOM 元素
+        const movieInput = document.getElementById('movie-input');
+        const autocompleteResults = document.getElementById('autocomplete-results');
+        const addMovieBtn = document.getElementById('add-movie-btn');
+        const selectedMoviesContainer = document.getElementById('selected-movies');
+        const recommendBtn = document.getElementById('recommend-btn');
+        const initialState = document.getElementById('initial-state');
+        const loadingState = document.getElementById('loading-state');
+        const recommendationResults = document.getElementById('recommendation-results');
+        const recommendationSection = document.querySelector('.recommendation-section');
+        const unknownMovieResults = document.getElementById('unknown-movie-results');
+        const aiRecommendation = document.getElementById('ai-recommendation');
+        const loadingText = document.getElementById('loading-text');
+        
+        // 应用状态
+        let selectedMovies = [];
+        let loadingStates = ["正在分析您的电影偏好...", "计算电影相似度...", "寻找完美匹配...", "定制个性化推荐..."];
+        let loadingStateIndex = 0;
+        let loadingInterval;
+        
+        // 初始禁用推荐按钮
+        recommendBtn.disabled = true;
+        
+        // 自动补全功能
+        movieInput.addEventListener('input', () => {
+            const input = movieInput.value.trim();
+            
+            if (input.length < 1) {
+                autocompleteResults.innerHTML = '';
+                autocompleteResults.classList.add('hidden');
+                return;
+            }
+            
+            const filteredMovies = movies.filter(movie => 
+                movie.title.toLowerCase().includes(input.toLowerCase()) && 
+                !selectedMovies.some(m => m.id === movie.id)
+            );
+            
+            if (filteredMovies.length === 0) {
+                autocompleteResults.innerHTML = `
+                    <div class="py-2 px-4 text-gray-500 dark:text-gray-400 text-sm italic">未找到电影</div>
+                `;
+                autocompleteResults.classList.remove('hidden');
+                return;
+            }
+            
+            autocompleteResults.innerHTML = filteredMovies.map(movie => `
+                <div class="autocomplete-item py-2 px-4 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" data-id="${movie.id}">
+                    <div class="font-medium">${movie.title}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">${movie.year} | ${movie.genres.join(', ')}</div>
+                </div>
+            `).join('');
+            
+            autocompleteResults.classList.remove('hidden');
+        });
+        
+        // 点击自动补全项
+        autocompleteResults.addEventListener('click', (e) => {
+            const item = e.target.closest('.autocomplete-item');
+            if (item) {
+                const movieId = parseInt(item.dataset.id);
+                const movie = movies.find(m => m.id === movieId);
+                
+                if (movie) {
+                    addSelectedMovie(movie);
+                    movieInput.value = '';
+                    autocompleteResults.innerHTML = '';
+                    autocompleteResults.classList.add('hidden');
+                }
+            }
+        });
+        
+        // 点击外部关闭自动补全
+        document.addEventListener('click', (e) => {
+            if (!movieInput.contains(e.target) && !autocompleteResults.contains(e.target)) {
+                autocompleteResults.classList.add('hidden');
+            }
+        });
+        
+        // 添加电影按钮
+        addMovieBtn.addEventListener('click', async () => {
+            const input = movieInput.value.trim();
+            if (!input) return;
+            
+            // 在数据库中查找电影
+            const movie = movies.find(m => m.title.toLowerCase() === input.toLowerCase());
+            
+            if (movie) {
+                // 检查是否已选择
+                if (selectedMovies.some(m => m.id === movie.id)) {
+                    // 显示已选择提示
+                    showToast('该电影已在您的列表中', 'warning');
+                    return;
+                }
+                
+                addSelectedMovie(movie);
+            } else {
+                // 未知电影，调用大语言模型
+                handleUnknownMovie(input);
+            }
+            
+            movieInput.value = '';
+            autocompleteResults.classList.add('hidden');
+        });
+        
+        // 添加已选电影
+        function addSelectedMovie(movie) {
+            if (selectedMovies.some(m => m.id === movie.id)) return;
+            
+            selectedMovies.push(movie);
+            updateSelectedMoviesUI();
+            
+            // 启用推荐按钮
+            recommendBtn.disabled = false;
+            
+            // 显示成功提示
+            showToast(`已添加: ${movie.title}`, 'success');
+        }
+        
+        // 更新已选电影UI
+        function updateSelectedMoviesUI() {
+            if (selectedMovies.length === 0) {
+                selectedMoviesContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center italic">未选择任何电影</p>';
+                return;
+            }
+            
+            selectedMoviesContainer.innerHTML = selectedMovies.map(movie => `
+                <div class="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-800 rounded-lg animate-fade-in">
+                    <div>
+                        <span class="font-medium">${movie.title}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">(${movie.year})</span>
+                    </div>
+                    <button class="text-red-500 hover:text-red-700 transition-colors p-1" data-id="${movie.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+            
+            // 添加移除电影事件
+            const removeButtons = selectedMoviesContainer.querySelectorAll('button');
+            removeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const movieId = parseInt(button.dataset.id);
+                    selectedMovies = selectedMovies.filter(m => m.id !== movieId);
+                    updateSelectedMoviesUI();
+                    
+                    if (selectedMovies.length === 0) {
+                        recommendBtn.disabled = true;
+                    }
+                    
+                    // 显示删除提示
+                    showToast('已移除电影', 'info');
+                });
+            });
+        }
+        
+        // 获取推荐按钮
+        recommendBtn.addEventListener('click', () => {
+            if (selectedMovies.length === 0) return;
+            
+            showLoadingState();
+            
+            // 模拟加载过程
+            setTimeout(() => {
+                loadingStateIndex = 0;
+                loadingText.textContent = loadingStates[loadingStateIndex];
+                
+                loadingInterval = setInterval(() => {
+                    loadingStateIndex = (loadingStateIndex + 1) % loadingStates.length;
+                    loadingText.textContent = loadingStates[loadingStateIndex];
+                }, 2000);
+                
+                // 3秒后显示推荐结果
+                setTimeout(() => {
+                    clearInterval(loadingInterval);
+                    showRecommendations();
+                }, 3000);
+            }, 500);
+        });
+        
+        // 显示加载状态
+        function showLoadingState() {
+            initialState.classList.add('hidden');
+            recommendationResults.classList.add('hidden');
+            unknownMovieResults.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+        }
+        
+        // 显示推荐结果
+        function showRecommendations() {
+            const recommendations = getRecommendations(selectedMovies);
+            
+            loadingState.classList.add('hidden');
+            recommendationResults.classList.remove('hidden');
+            
+            if (recommendations.length === 0) {
+                recommendationSection.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-gray-500 dark:text-gray-400">没有找到合适的推荐</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            recommendationSection.innerHTML = '';
+            
+            recommendations.forEach((recommendation, index) => {
+                const { movie, score, reasons } = recommendation;
+                
+                const cardElement = document.createElement('div');
+                cardElement.className = 'recommendation-card bg-white dark:bg-dark-card rounded-xl shadow-md overflow-hidden transition-all';
+                cardElement.innerHTML = `
+                    <div class="flex flex-col md:flex-row">
+                        <div class="movie-poster w-full md:w-1/3 h-40 md:h-auto flex-shrink-0 flex items-center justify-center text-white font-bold text-xl p-2 text-center" style="background-image: ${generateMovieCardGradient(movie.genres)}">
+                            ${movie.title}
+                        </div>
+                        <div class="w-full md:w-2/3 p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-bold">${movie.title} <span class="text-sm font-normal text-gray-600 dark:text-gray-400">(${movie.year})</span></h3>
+                                <div class="ml-2 px-3 py-1 bg-primary/10 dark:bg-primary/20 text-primary rounded-full text-sm font-semibold">${score}% 匹配</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">导演: ${movie.director}</div>
+                                <div class="flex flex-wrap gap-1 mb-2">
+                                    ${movie.genres.map(genre => `<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">${genre}</span>`).join('')}
+                                </div>
+                            </div>
+                            
+                            <div class="similarity-container mb-2">
+                                <div class="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div class="similarity-bar h-full bg-primary rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">${movie.description}</p>
+                            
+                            ${reasons.length > 0 ? `
+                                <div class="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">推荐原因:</p>
+                                    <ul class="text-xs text-gray-600 dark:text-gray-300 space-y-1">
+                                        ${reasons.slice(0, 2).map(reason => `<li>• ${reason}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                recommendationSection.appendChild(cardElement);
+                
+                // 添加延迟显示动画
+                setTimeout(() => {
+                    cardElement.style.opacity = '1';
+                    cardElement.style.transform = 'scale(1)';
+                    cardElement.classList.add('animate-scale-in');
+                    
+                    // 延迟显示相似度条
+                    setTimeout(() => {
+                        const similarityBar = cardElement.querySelector('.similarity-bar');
+                        similarityBar.style.width = `${score}%`;
+                    }, 300 + index * 200);
+                }, 100 + index * 150);
+            });
+            
+            // 显示推荐部分
+            recommendationSection.style.opacity = '1';
+            recommendationSection.style.transform = 'translateY(0)';
+            recommendationSection.classList.add('animate-slide-up');
+        }
+        
+        // 处理未知电影
+        async function handleUnknownMovie(movieTitle) {
+            showLoadingState();
+            loadingText.textContent = `正在查询有关"${movieTitle}"的信息...`;
+            
+            try {
+                // 调用Claude大语言模型
+                await window.Poe.sendUserMessage(
+                    `@Claude-3.7-Sonnet 我喜欢电影"${movieTitle}"，请推荐3部类似的电影，并简要说明推荐理由。请格式化回复，突出显示推荐的电影名称和年份。`,
+                    {
+                        handler: "claude-handler",
+                        stream: false,
+                        openChat: false
+                    }
+                );
+            } catch (err) {
+                loadingState.classList.add('hidden');
+                unknownMovieResults.classList.remove('hidden');
+                aiRecommendation.innerHTML = `<div class="p-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg">获取推荐时出错: ${err.message || "未知错误"}</div>`;
+            }
+        }
+        
+        // 注册大语言模型响应处理程序
+        window.Poe.registerHandler("claude-handler", (result) => {
+            loadingState.classList.add('hidden');
+            unknownMovieResults.classList.remove('hidden');
+            
+            const msg = result.responses[0];
+            
+            if (msg.status === "error") {
+                aiRecommendation.innerHTML = `<div class="p-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg">错误: ${msg.statusText || "获取推荐时出错"}</div>`;
+            } else if (msg.status === "complete") {
+                // 使用marked.js渲染Markdown
+                aiRecommendation.innerHTML = marked.parse(msg.content);
+            }
+        });
+        
+        // 创建提示消息
+        function showToast(message, type = 'info') {
+            // 移除现有提示
+            const existingToasts = document.querySelectorAll('.toast-notification');
+            existingToasts.forEach(toast => {
+                toast.classList.remove('animate-fade-in');
+                toast.classList.add('animate-fade-out');
+                setTimeout(() => toast.remove(), 300);
+            });
+            
+            // 创建新提示
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification fixed top-4 right-4 z-50 p-3 rounded-lg shadow-lg animate-fade-in blurred-bg';
+            
+            let bgColor, textColor, icon;
+            
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-100 dark:bg-green-900/30';
+                    textColor = 'text-green-800 dark:text-green-200';
+                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>';
+                    break;
+                case 'warning':
+                    bgColor = 'bg-yellow-100 dark:bg-yellow-900/30';
+                    textColor = 'text-yellow-800 dark:text-yellow-200';
+                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>';
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-100 dark:bg-red-900/30';
+                    textColor = 'text-red-800 dark:text-red-200';
+                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>';
+                    break;
+                default: // info
+                    bgColor = 'bg-blue-100 dark:bg-blue-900/30';
+                    textColor = 'text-blue-800 dark:text-blue-200';
+                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clip-rule="evenodd" /></svg>';
+            }
+            
+            toast.innerHTML = `
+                <div class="flex items-center ${bgColor} ${textColor} px-4 py-2 rounded-md">
+                    <span class="mr-2">${icon}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                toast.classList.remove('animate-fade-in');
+                toast.classList.add('animate-fade-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // 按Enter键添加电影
+        movieInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                addMovieBtn.click();
+            }
+        });
     </script>
 </body>
 </html>
